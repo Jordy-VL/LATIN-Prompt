@@ -184,7 +184,7 @@ def main():
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     sampling_params = SamplingParams(temperature=0)
-    model = LLM(model=custom_args.model_name_or_path)
+    model = LLM(model=custom_args.model_name_or_path, quantization=("awq" if "awq" in custom_args.model_name_or_path else None))
     tokenizer = model.get_tokenizer()
 
 

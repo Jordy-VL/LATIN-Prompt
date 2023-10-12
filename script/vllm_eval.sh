@@ -7,6 +7,8 @@ prompt=${4:-"plain"}  # plain, task_instruction, task_instruction_space, space
 split_name=${5:-"val_test"}
 comment=${6:-""}
 
+#NousResearch/Llama-2-13b-chat-hf
+
 run_name=${model_name}__Prompt_${prompt}
 if [ -n "${comment}" ]; then
     run_name=${run_name}__${comment}

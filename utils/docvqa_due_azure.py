@@ -95,7 +95,7 @@ class DocVQA(datasets.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
         """Uses local files located with data_dir"""
-        dest = Path(os.path.expanduser("~/datas/aws_neurips_time/docvqa"))
+        dest = Path(os.path.join(os.environ['DATAS_DIR'],"aws_neurips_time/docvqa"))
         # dest = Path("./datas/docvqa")
         return [
             # datasets.SplitGenerator(

@@ -17,9 +17,19 @@ import datasets
 import wandb
 
 from metric.anls import ANLS
-from utils.util import model_path_config
+from utils.model_path_config import model_path_config
 from utils import space_layout
 
+
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    pipeline,
+    logging,
+)
+from peft import LoraConfig, PeftModel
+from trl import SFTTrainer
 
 PROMPT_DICT = {
     "prompt_input": (
@@ -49,6 +59,71 @@ PROMPT_DICT = {
     ),
 }
 
+def load_llama(custom_args):
+    # Load the entire model on the GPU 0
+    device_map = {"": 0}
+    ################################################################################
+    # QLoRA parameters
+    ################################################################################
+
+    # LoRA attention dimension
+    lora_r = 64
+
+    # Alpha parameter for LoRA scaling
+    lora_alpha = 16
+
+    # Dropout probability for LoRA layers
+    lora_dropout = 0.1
+
+    ################################################################################
+    # bitsandbytes parameters
+    ################################################################################
+
+    # Activate 4-bit precision base model loading
+    use_4bit = True
+
+    # Compute dtype for 4-bit base models
+    bnb_4bit_compute_dtype = "float16"
+
+    # Quantization type (fp4 or nf4)
+    bnb_4bit_quant_type = "nf4"
+
+    # Activate nested quantization for 4-bit base models (double quantization)
+    use_nested_quant = False
+
+    # Load tokenizer and model with QLoRA configuration
+    compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=use_4bit,
+        bnb_4bit_quant_type=bnb_4bit_quant_type,
+        bnb_4bit_compute_dtype=compute_dtype,
+        bnb_4bit_use_double_quant=use_nested_quant,
+    )
+
+    # Check GPU compatibility with bfloat16
+    if compute_dtype == torch.float16 and use_4bit:
+        major, _ = torch.cuda.get_device_capability()
+        if major >= 8:
+            print("=" * 80)
+            print("Your GPU supports bfloat16: accelerate training with bf16=True")
+            print("=" * 80)
+
+    # Load base model
+    model = AutoModelForCausalLM.from_pretrained(
+        custom_args.model_name_or_path,
+        quantization_config=bnb_config,
+        device_map=device_map
+    )
+    model.config.use_cache = False
+    model.config.pretraining_tp = 1
+
+    # Load LLaMA tokenizer
+    processor = AutoTokenizer.from_pretrained(custom_args.model_name_or_path, trust_remote_code=True)
+    processor.pad_token = processor.eos_token
+    processor.padding_side = "right" # Fix weird overflow issue with fp16 training
+
+    return processor, model
 
 @dataclass
 class CustomArguments:
@@ -164,12 +239,11 @@ def main():
 
     set_seed(training_args.seed)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    
+    processor, model = load_llama(custom_args)
 
-    processor = AutoTokenizer.from_pretrained(custom_args.model_name_or_path)
-    model = LlamaForCausalLM.from_pretrained(
-        custom_args.model_name_or_path, torch_dtype=torch.float16,
-    )
-    model.to(device)
+    #set to 4 bits
+
     # model = LlamaForCausalLM.from_pretrained(
     #     custom_args.model_name_or_path, device_map="auto", load_in_8bit=True,
     # )

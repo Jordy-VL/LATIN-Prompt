@@ -11,6 +11,9 @@ model_path_config = {
     "opt-iml-max-1.3b": "facebook/opt-iml-max-1.3b",
     "opt-iml-max-30b": "facebook/opt-iml-max-30b",
     "vicuna-13b": "lmsys/vicuna-13b-v1.3",
-    "llama2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
-    "llama2-13b-chat": "meta-llama/Llama-2-13b-chat-hf",
+    # "llama2-7b-chat": "TheBloke/Llama-2-7B-chat-AWQ",
+    # "llama2-13b-chat": "TheBloke/Llama-2-13B-chat-AWQ",
+    "llama2-7b-chat": "NousResearch/Llama-2-7b-chat-hf",
+    "llama2-13b-chat": "NousResearch/Llama-2-13b-chat-hf" 
+    #"meta-llama/Llama-2-13b-chat-hf",
 }
