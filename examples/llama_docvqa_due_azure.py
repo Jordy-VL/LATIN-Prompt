@@ -113,7 +113,7 @@ def load_llama(custom_args):
     model = AutoModelForCausalLM.from_pretrained(
         custom_args.model_name_or_path,
         quantization_config=bnb_config,
-        device_map=device_map
+        device_map='auto'
     )
     model.config.use_cache = False
     model.config.pretraining_tp = 1
@@ -238,7 +238,7 @@ def main():
     )
 
     set_seed(training_args.seed)
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     
     processor, model = load_llama(custom_args)
 
