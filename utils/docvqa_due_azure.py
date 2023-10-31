@@ -84,6 +84,8 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                     # "word_boxes": datasets.Sequence(datasets.Sequence(datasets.Value("int64"))),
                     "texts": datasets.Sequence(datasets.Value("string")),
                     "text_boxes": datasets.Sequence(datasets.Sequence(datasets.Value("int64"))),
+                    "question_types": datasets.Sequence(datasets.Value("string")),
+
                     # "image": datasets.features.Image(),
                 }
             ),
@@ -145,6 +147,12 @@ class DocVQA(datasets.GeneratorBasedBuilder):
 
         # while True:
         #     continue
+        
+        # NEW: open annotations for question types
+        with open(os.path.join(os.environ['DATAS_DIR'], 'val_v1.0_withQT.json'), 'r') as f:
+            valdata = json.load(f)['data'] #transform into dict with question_id as key
+            val_question_types = {valdata[i]['questionId']: valdata[i]['question_types'] for i in range(len(valdata))}
+        
         count = 0
         with open(doc_path, 'r', encoding="utf-8") as f:
             data = json.load(f)
@@ -153,11 +161,10 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                     continue
 
                 for item in doc["client_features"]:
-                    from pdb import set_trace; set_trace()
                     question = item["name"]
                     question_id = int(item["metadata"]["question_id"])
                     answers = item["value_variants"] if doc["split"] != "test" else None
-                    
+                    question_types = val_question_types[question_id] if doc["split"] == "dev" else None
                     words = document_contents[doc["name"]]["common_format"]["tokens"]
                     # word_boxes = document_contents[data["name"]]["common_format"]["positions"]
                     lines = document_contents[doc["name"]]["common_format"]["structures"]["lines"]["structure_value"]
@@ -175,14 +182,15 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                         "answers": answers,
                         "texts": line_texts,
                         "text_boxes": line_boxes,
+                        "question_types": question_types,
                     }
 
                     # if count > 10:
                     #     break
                     
-                    print("="*50)
-                    for k, v in example.items():
-                        print(k, v)
+                    # print("="*50)
+                    # for k, v in example.items():
+                    #     print(k, v)
                     # print(example["questionId"])
                     # print(example["texts"])
                     # print(document_contents[data["name"]]["common_format"].keys())

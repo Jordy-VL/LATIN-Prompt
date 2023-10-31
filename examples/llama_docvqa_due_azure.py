@@ -1,5 +1,6 @@
 import sys
-sys.path.append('./')
+
+sys.path.append("./")
 import os
 from dataclasses import dataclass, field
 from tqdm import tqdm
@@ -59,6 +60,7 @@ PROMPT_DICT = {
     ),
 }
 
+
 def load_llama(custom_args):
     # Load the entire model on the GPU 0
     device_map = {"": 0}
@@ -111,9 +113,7 @@ def load_llama(custom_args):
 
     # Load base model
     model = AutoModelForCausalLM.from_pretrained(
-        custom_args.model_name_or_path,
-        quantization_config=bnb_config,
-        device_map='auto'
+        custom_args.model_name_or_path, quantization_config=bnb_config, device_map="auto"
     )
     model.config.use_cache = False
     model.config.pretraining_tp = 1
@@ -121,37 +121,28 @@ def load_llama(custom_args):
     # Load LLaMA tokenizer
     processor = AutoTokenizer.from_pretrained(custom_args.model_name_or_path, trust_remote_code=True)
     processor.pad_token = processor.eos_token
-    processor.padding_side = "right" # Fix weird overflow issue with fp16 training
+    processor.padding_side = "right"  # Fix weird overflow issue with fp16 training
 
     return processor, model
+
 
 @dataclass
 class CustomArguments:
     model_name_or_path: str = field(
         default="llama-7b",
-        metadata={"help": "Path to pretrained model or model identifier\
-                  from huggingface.co/models"}
+        metadata={
+            "help": "Path to pretrained model or model identifier\
+                  from huggingface.co/models"
+        },
     )
     dataset_name: str = field(
-        default="docvqa",
-        metadata={"help": "The name of the dataset to use (via the datasets library)."}
+        default="docvqa", metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
-    results_dir: str = field(
-        default="results",
-        metadata={"help": "The directory to save the results."}
-    )
-    datas_dir: str = field(
-        default="",
-        metadata={"help": "The directory to save the datas."}
-    )
-    wandb_project: str = field(
-        default="Layout",
-        metadata={"help": "The name of the wandb project."}
-    )
-    prompt: str = field(
-        default="plain",
-        metadata={"help": "The prompt type. (plain, alpaca, layout)"}
-    )
+    results_dir: str = field(default="results", metadata={"help": "The directory to save the results."})
+    datas_dir: str = field(default="", metadata={"help": "The directory to save the datas."})
+    wandb_project: str = field(default="Layout", metadata={"help": "The name of the wandb project."})
+    prompt: str = field(default="plain", metadata={"help": "The prompt type. (plain, alpaca, layout)"})
+    comment: str = field(default="", metadata={"help": "The comment for this run."})
 
     def __post_init__(self):
         self.model_name_or_path = model_path_config[self.model_name_or_path]
@@ -162,10 +153,9 @@ class DataCollatorForDocVQA(DataCollatorMixin):
     def __init__(self, prompt_type, two_stage=False):
         super().__init__()
         self.prompt_type = prompt_type
-
+        # DLA_FEATURES
 
     def space_layout(self, texts, boxes):
-
         return space_layout.space_layout(texts, boxes)
 
     def __call__(self, features):
@@ -174,50 +164,42 @@ class DataCollatorForDocVQA(DataCollatorMixin):
             "question": [],
             "answers": [],
             "questionId": [],
+            "question_types": [],
         }
         for example in features:
             question = example["question"]
             batch["question"].append(question)
+            batch["question_types"].append(example["question_types"])
+
+            # TODO: extend with DLA features
 
             if self.prompt_type == "plain":
                 doc = " ".join(example["texts"])
-                text = PROMPT_DICT["prompt_plain"].format_map({
-                    "document": doc,
-                    "question": question
-                })
+                text = PROMPT_DICT["prompt_plain"].format_map({"document": doc, "question": question})
             elif self.prompt_type == "task_instruction_space":
                 space_line_texts = self.space_layout(
                     example["texts"],
                     example["text_boxes"],
                 )
                 doc = "\n".join(space_line_texts)
-                text = PROMPT_DICT["prompt_task"].format_map({
-                    "document": doc,
-                    "question": question
-                })
+                text = PROMPT_DICT["prompt_task"].format_map({"document": doc, "question": question})
             elif self.prompt_type == "task_instruction":
                 doc = " ".join(example["texts"])
-                text = PROMPT_DICT["prompt_task"].format_map({
-                    "document": doc,
-                    "question": question
-                })
+                text = PROMPT_DICT["prompt_task"].format_map({"document": doc, "question": question})
             elif self.prompt_type == "space":
                 space_line_texts = self.space_layout(
                     example["texts"],
                     example["text_boxes"],
                 )
                 doc = "\n".join(space_line_texts)
-                text = PROMPT_DICT["prompt_plain"].format_map({
-                    "document": doc,
-                    "question": question
-                })
+                text = PROMPT_DICT["prompt_plain"].format_map({"document": doc, "question": question})
             else:
                 raise ValueError("Invalid prompt type.")
-            
+
             batch["text"].append(text)
             batch["answers"].append(example["answers"])
             batch["questionId"].append(example["questionId"])
-        
+
         return batch
 
 
@@ -227,34 +209,31 @@ def main():
     for k, v in custom_args.__dict__.items():
         print(k, v)
 
-    logged_config = {
-        "dataset_name": custom_args.dataset_name,
-    }
+    # TODO: extend this
+    to_log = ["dataset_name", "model_name_or_path", "prompt", "comment"]
+    logged_config = {k: v for k, v in custom_args.__dict__.items() if k in to_log}
+    # some debugging control variables
+    SKIP_TEST = True
+    DISABLE_WANDB = False
+    DOWNSAMPLING = False
 
-    wandb.init(
-        project=custom_args.wandb_project,
-        name=training_args.run_name,
-        config=logged_config,
-    )
+    if not DISABLE_WANDB:
+        wandb.init(
+            project=custom_args.wandb_project,
+            name=training_args.run_name,
+            config=logged_config,
+        )
 
     set_seed(training_args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    
+
     processor, model = load_llama(custom_args)
-
-    #set to 4 bits
-
-    # model = LlamaForCausalLM.from_pretrained(
-    #     custom_args.model_name_or_path, device_map="auto", load_in_8bit=True,
-    # )
 
     if custom_args.dataset_name == "docvqa_due_azure":
         data = datasets.load_dataset("utils/docvqa_due_azure.py")
 
     anls_metric = ANLS(
-        result_dir=custom_args.results_dir,
-        exp_name=training_args.run_name,
-        dataset_name=custom_args.dataset_name
+        result_dir=custom_args.results_dir, exp_name=training_args.run_name, dataset_name=custom_args.dataset_name
     )
 
     collate_fn = DataCollatorForDocVQA(
@@ -266,11 +245,12 @@ def main():
     all_answers = []
     all_questions = []
     all_question_ids = []
+    all_question_types = []
     count = 0
     print(f"Begin from the {count+1}-th example.")
-    for i in tqdm(range(count, len(data["validation"])), desc='Processing'):
+    for i in tqdm(range(count, len(data["validation"])), desc="Processing"):
         example = data["validation"][i]
-        print("="*30)
+        print("=" * 30)
         batch = collate_fn([example])
         print(batch["text"][0])
 
@@ -290,42 +270,43 @@ def main():
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )
-        
-        generated_text = [
-            t.strip()[len(batch["text"][i]):].strip() for i, t in enumerate(generated_text)
-        ]
-        
+
+        generated_text = [t.strip()[len(batch["text"][i]) :].strip() for i, t in enumerate(generated_text)]
+
         print("Outputs:")
         print(generated_text)
-        
+
         all_preds.extend(generated_text)
         all_answers.extend(batch["answers"])
         all_questions.extend(batch["question"])
         all_question_ids.extend(batch["questionId"])
-        if i == 10:
+        all_question_types.extend(
+            batch["question_types"]
+        )  # it is a list, good idea? data["validation"][i]['question_types']
+        if DOWNSAMPLING and i == 3:
             break
-    from pdb import set_trace; set_trace()
-    val_anls = anls_metric.compute_and_save(
+    val_anls_metrics = anls_metric.compute_and_save(
         qids=all_question_ids,
         questions=all_questions,
         predictions=all_preds,
         references=all_answers,
-        #diagnostic 
-        split="val"
+        question_types=all_question_types,
+        split="val",
     )
 
-    wandb.log({"val_anls": val_anls})
-    print({"val_anls": val_anls})
-    
-    
+    wandb.log(val_anls_metrics)
+    print(val_anls_metrics)
+
+    if SKIP_TEST:
+        return
     # evaluate on the test dataset
     all_preds = []
     all_questions = []
     all_question_ids = []
     count = 0
-    for i in tqdm(range(count, len(data["test"])), desc='Processing'):
+    for i in tqdm(range(count, len(data["test"])), desc="Processing"):
         example = data["test"][i]
-        print("="*30)
+        print("=" * 30)
         batch = collate_fn([example])
         print(batch["text"][0])
 
@@ -346,26 +327,22 @@ def main():
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )
-        
+
         # generated_text = [t.strip() for t in generated_text]
-        generated_text = [
-            t.strip()[len(batch["text"][i]):].strip() for i, t in enumerate(generated_text)
-        ]
+        generated_text = [t.strip()[len(batch["text"][i]) :].strip() for i, t in enumerate(generated_text)]
 
         print("Outputs:")
         print(generated_text)
-        
+
         all_preds.extend(generated_text)
         all_questions.extend(batch["question"])
         all_question_ids.extend(batch["questionId"])
 
-    test_anls = anls_metric.compute_and_save(
-        qids=all_question_ids,
-        questions=all_questions,
-        predictions=all_preds,
-        split="test"
+    test_anls_metrics = anls_metric.compute_and_save(
+        qids=all_question_ids, questions=all_questions, predictions=all_preds, split="test"
     )
-    print({"test_anls": test_anls})
+    wandb.log(test_anls_metrics)
+    print(test_anls_metrics)
 
 
 if __name__ == "__main__":

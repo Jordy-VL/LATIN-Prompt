@@ -30,7 +30,7 @@ class ANLS(object):
             results = []
         return len(results)
 
-    def load_and_save_docvqa(self, qids, questions, predictions, references=None, split="val"):
+    def load_and_save_docvqa(self, qids, questions, predictions, references=None, question_types=None, split="val"):
         all_anls = 0.0
         results = []
         save_path = os.path.join(self.result_dir, f"{self.exp_name}__{split}.json")
@@ -52,14 +52,35 @@ class ANLS(object):
                 result["question"] = questions[i]
                 # result["gold_answer"] = references[i][0]  # select the first answer
                 result["gold_answer"] = references[i]  # select the first answer
-                result["anls"] = anls                
+                result["anls"] = anls   
+            
+            if question_types is not None:
+                result["question_types"] = question_types[i]             
                 
             results.append(result)
         
         with open(save_path, "w") as f:
             json.dump(results, f)
+            
+            
+        # ANLS per question type
+        if question_types is not None:
+            anls_per_qtype = {}
+            for i in range(len(qids)):
+                qtype = question_types[i]
+                if qtype not in anls_per_qtype:
+                    anls_per_qtype[qtype] = []
+                anls_per_qtype[qtype].append(results[i]['anls'])
+            
+            for qtype, anls_list in anls_per_qtype.items():
+                print(f"ANLS for {qtype}: {sum(anls_list) / len(anls_list)}")
         
-        return all_anls / len(results)
+        metrics = {
+            f'{split}_anls': all_anls / len(results),
+            '{split}_qtype_anls': anls_per_qtype if question_types is not None else None
+        }
+        
+        return metrics
 
     def load_and_save_mpdocvqa(self, qids, questions, predictions, references=None, split="val"):
         all_anls = 0.0
@@ -85,7 +106,7 @@ class ANLS(object):
                 # result["gold_answer"] = references[i][0]  # select the first answer
                 result["gold_answer"] = references[i]  # select the first answer
                 result["anls"] = anls                
-                
+
             results.append(result)
         
         with open(save_path, "w") as f:
@@ -93,7 +114,7 @@ class ANLS(object):
         
         return all_anls / len(results)
 
-    def compute_and_save_docvqa(self, qids, questions, predictions, references=None, split="val"):
+    def compute_and_save_docvqa(self, qids, questions, predictions, references=None, question_types=None, split="val"):
         all_anls = 0.0
         results = []
         for i in range(len(qids)):
@@ -108,14 +129,39 @@ class ANLS(object):
                 # result["gold_answer"] = references[i][0]  # select the first answer
                 result["gold_answer"] = references[i]  # select the first answer
                 result["anls"] = anls                
-                
+
+            
+            if question_types is not None:
+                result["question_types"] = question_types[i]   
+
             results.append(result)
         
         save_path = os.path.join(self.result_dir, f"{self.exp_name}__{split}.json")
         with open(save_path, "w") as f:
             json.dump(results, f)
         
-        return all_anls / len(qids)
+        # ANLS per question type
+        if question_types is not None:
+            anls_per_qtype = {}
+            for i in range(len(qids)):
+                qtype = "__".join(question_types[i])
+                if qtype not in anls_per_qtype:
+                    anls_per_qtype[qtype] = []
+                    
+                    
+                anls_per_qtype[qtype].append(results[i]['anls'])
+            
+            # running mean of ANLS
+            for qtype, anls_list in anls_per_qtype.items():
+                print(f"ANLS for {qtype}: {sum(anls_list) / len(anls_list)}")
+        
+        metrics = {
+            f'{split}_anls': all_anls / len(results),
+            f'{split}_qtype_anls': {k:sum(v) / len(v) for k,v in anls_per_qtype.items()} if question_types is not None else None
+        }
+        
+        return metrics
+
     
     def compute_and_save_mpdocvqa(self, qids, questions, predictions, references=None, split="val"):
         all_anls = 0.0
@@ -150,11 +196,11 @@ class ANLS(object):
         else:
             raise NotImplementedError
 
-    def compute_and_save(self, qids, questions, predictions, references=None, split="val"):
+    def compute_and_save(self, qids, questions, predictions, references=None, question_types=None, split="val"):
         if self.dataset_name in ["docvqa", "infographicvqa", "docvqa_due_azure", "infographicvqa_due_azure"]:
-            return self.compute_and_save_docvqa(qids, questions, predictions, references, split)
+            return self.compute_and_save_docvqa(qids, questions, predictions, references=references, split=split, question_types=question_types)
         elif self.dataset_name in ["mpdocvqa"]:
-            return self.compute_and_save_mpdocvqa(qids, questions, predictions, references, split)
+            return self.compute_and_save_mpdocvqa(qids, questions, predictions, references=references, split=split, question_types=question_types)
         else:
             raise NotImplementedError
 

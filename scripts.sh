@@ -17,20 +17,20 @@ What is variable?
     - reviewkd
 
 '''
-GPU = 4
+
+GPU=3
 MODELS=(llama2-7b-chat) # alpaca-7b-chat vicuna-7b-chat mistral-7b-chat
 DATASETS=(docvqa_due_azure) #DUDE
-DLA_MODELS=() # CNN ViT-b simkd_ViT-t reviewkd_ViT-t simkd_CNN reviewkd_CNN
+DLA_MODELS=('') # CNN ViT-b simkd_ViT-t reviewkd_ViT-t simkd_CNN reviewkd_CNN
 for model in ${MODELS[@]}; do
     for dataset in ${DATASETS[@]}; do
         bash script/llama_eval.sh $GPU $model $dataset plain
         bash script/llama_eval.sh $GPU $model $dataset space
-        bash script/llama_eval.sh $GPU $model $dataset task_instruction_space
-        
+        # bash script/llama_eval.sh $GPU $model $dataset task_instruction_space
         for dla_model in  ${DLA_MODELS[@]}; do
-            bash script/llama_eval.sh $GPU $model $dataset plain_DLA $dla_model
-            bash script/llama_eval.sh $GPU $model $dataset space_DLA $dla_model
-            bash script/llama_eval.sh $GPU $model $dataset task_instruction_space_DLA $dla_model
+            # bash script/llama_eval.sh $GPU $model $dataset plain_DLA $dla_model
+            # bash script/llama_eval.sh $GPU $model $dataset space_DLA $dla_model
+            # bash script/llama_eval.sh $GPU $model $dataset task_instruction_space_DLA $dla_model
         done
     done
 done
