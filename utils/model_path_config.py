@@ -14,6 +14,7 @@ model_path_config = {
     # "llama2-7b-chat": "TheBloke/Llama-2-7B-chat-AWQ",
     # "llama2-13b-chat": "TheBloke/Llama-2-13B-chat-AWQ",
     "llama2-7b-chat": "NousResearch/Llama-2-7b-chat-hf",
-    "llama2-13b-chat": "NousResearch/Llama-2-13b-chat-hf" 
+    "llama2-13b-chat": "NousResearch/Llama-2-13b-chat-hf",
+    "mistral-7b": "mistralai/Mistral-7B-v0.1", 
     #"meta-llama/Llama-2-13b-chat-hf",
 }

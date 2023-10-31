@@ -266,7 +266,6 @@ def main():
     all_answers = []
     all_questions = []
     all_question_ids = []
-
     count = 0
     print(f"Begin from the {count+1}-th example.")
     for i in tqdm(range(count, len(data["validation"])), desc='Processing'):
@@ -281,7 +280,11 @@ def main():
         )
         inputs = inputs.to(device)
         print(batch["answers"][0])
-        generated_ids = model.generate(inputs.input_ids, max_new_tokens=100)
+        try:
+            generated_ids = model.generate(inputs.input_ids, max_new_tokens=100)
+        except Exception as e:
+            print(e)
+            continue
         generated_text = processor.batch_decode(
             generated_ids,
             skip_special_tokens=True,
@@ -299,18 +302,22 @@ def main():
         all_answers.extend(batch["answers"])
         all_questions.extend(batch["question"])
         all_question_ids.extend(batch["questionId"])
-    
+        if i == 10:
+            break
+    from pdb import set_trace; set_trace()
     val_anls = anls_metric.compute_and_save(
         qids=all_question_ids,
         questions=all_questions,
         predictions=all_preds,
         references=all_answers,
+        #diagnostic 
         split="val"
     )
 
     wandb.log({"val_anls": val_anls})
     print({"val_anls": val_anls})
-
+    
+    
     # evaluate on the test dataset
     all_preds = []
     all_questions = []
@@ -328,7 +335,12 @@ def main():
         )
         inputs = inputs.to(device)
         print(batch["answers"][0])
-        generated_ids = model.generate(inputs.input_ids, max_new_tokens=100)
+        try:
+            generated_ids = model.generate(inputs.input_ids, max_new_tokens=100)
+        except Exception as e:
+            print(e)
+            print(len(batch["text"][0]))
+            continue
         generated_text = processor.batch_decode(
             generated_ids,
             skip_special_tokens=True,

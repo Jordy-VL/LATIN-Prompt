@@ -24,7 +24,7 @@ if [ "${dataset_name}" = "docvqa_due_azure" ]; then
         --wandb_project "Layout" \
         --run_name ${run_name} \
         --prompt ${prompt} \
-        --per_device_eval_batch_size 1
+        --per_device_eval_batch_size 2
 else
     echo "wrong dataset: "${dataset_name}
 fi

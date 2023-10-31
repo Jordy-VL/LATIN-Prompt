@@ -153,6 +153,7 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                     continue
 
                 for item in doc["client_features"]:
+                    from pdb import set_trace; set_trace()
                     question = item["name"]
                     question_id = int(item["metadata"]["question_id"])
                     answers = item["value_variants"] if doc["split"] != "test" else None
