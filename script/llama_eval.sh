@@ -1,7 +1,7 @@
 #!/bin/bash
 # set -x
 gpu_id=${1:-0}
-model_name=${2:-"llama-7b"}
+model_name=${2:-"llama-7b"} 
 dataset_name=${3:-"docvqa"}
 prompt=${4:-"plain"}  # plain or alpaca
 comment=${5:-""}

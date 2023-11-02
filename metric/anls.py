@@ -144,12 +144,10 @@ class ANLS(object):
         if question_types is not None:
             anls_per_qtype = {}
             for i in range(len(qids)):
-                qtype = "__".join(question_types[i])
-                if qtype not in anls_per_qtype:
-                    anls_per_qtype[qtype] = []
-                    
-                    
-                anls_per_qtype[qtype].append(results[i]['anls'])
+                for qtype in question_types[i]:
+                    if qtype not in anls_per_qtype:
+                        anls_per_qtype[qtype] = []
+                    anls_per_qtype[qtype].append(results[i]['anls'])
             
             # running mean of ANLS
             for qtype, anls_list in anls_per_qtype.items():
