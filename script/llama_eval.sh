@@ -25,7 +25,7 @@ if [ "${dataset_name}" = "docvqa_due_azure" ]; then
         --run_name ${run_name} \
         --prompt ${prompt} \
         --per_device_eval_batch_size 2 \
-        --comment ${comment}
+        #--comment ${comment}
 else
     echo "wrong dataset: "${dataset_name}
 fi
