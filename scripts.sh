@@ -26,8 +26,8 @@ DATASETS=(docvqa_due_azure) #DUDE
 DLA_MODELS=('') # CNN ViT-b simkd_ViT-t reviewkd_ViT-t simkd_CNN reviewkd_CNN
 for model in ${MODELS[@]}; do
     for dataset in ${DATASETS[@]}; do
-        nohup bash script/llama_eval.sh 2 $model $dataset plain 'plain' > plain.out &
-        nohup bash script/llama_eval.sh 3 $model $dataset space 'space' > space.out &
+        #nohup bash script/llama_eval.sh 2 $model $dataset plain 'plain' > plain.out &
+        #nohup bash script/llama_eval.sh 3 $model $dataset space 'space' > space.out &
         nohup bash script/llama_eval.sh 4 $model $dataset task_instruction_space > latin.out &
         for dla_model in  ${DLA_MODELS[@]}; do
             echo $dla_model

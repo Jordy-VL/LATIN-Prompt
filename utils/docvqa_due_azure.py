@@ -9,7 +9,6 @@ from PIL import Image
 logger = datasets.logging.get_logger(__name__)
 
 
-
 def load_image(image_path):
     image = Image.open(image_path).convert("RGB")
     w, h = image.size
@@ -27,12 +26,7 @@ def normalize_bbox(bbox, size):
 
 def quad_to_box(quad):
     # test 87 is wrongly annotated
-    box = (
-        max(0, quad["x1"]),
-        max(0, quad["y1"]),
-        quad["x3"],
-        quad["y3"]
-    )
+    box = (max(0, quad["x1"]), max(0, quad["y1"]), quad["x3"], quad["y3"])
     if box[3] < box[1]:
         bbox = list(box)
         tmp = bbox[3]
@@ -58,23 +52,40 @@ def box4point_to_box2point(box4point):
     return box2point
 
 
+_DESCRIPTION = """
+DocVQA dataset
+"""
+
 class DocVQAConfig(datasets.BuilderConfig):
     """BuilderConfig for DocVQA"""
-    def __init__(self, **kwargs):
+
+    def __init__(self, dla_model: str = "", **kwargs):
         """BuilderConfig for CORD.
         Args:
           **kwargs: keyword arguments forwarded to super.
         """
         super(DocVQAConfig, self).__init__(**kwargs)
+        self.dla_model = f"-{dla_model}" if dla_model else ""
+
 
 class DocVQA(datasets.GeneratorBasedBuilder):
+    
     BUILDER_CONFIGS = [
-        DocVQAConfig(name="docvqa", version=datasets.Version("1.0.0"), description="DocVQA dataset"),
+        DocVQAConfig(name="docvqa", version=datasets.Version("1.0.0"), description=_DESCRIPTION),
     ]
+    
+    def __init__(self, dla_model: str = "", **kwargs):
+        """BuilderConfig for CORD.
+        Args:
+          **kwargs: keyword arguments forwarded to super.
+        """
+        self.dla_model = f"-{dla_model}" if dla_model else ""
+        super(DocVQA, self).__init__(**kwargs)
+        
 
     def _info(self):
         return datasets.DatasetInfo(
-            # description=_DESCRIPTION,
+            description=_DESCRIPTION + f" with dla_model {self.dla_model}",
             features=datasets.Features(
                 {
                     "questionId": datasets.Value("string"),
@@ -85,7 +96,6 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                     "texts": datasets.Sequence(datasets.Value("string")),
                     "text_boxes": datasets.Sequence(datasets.Sequence(datasets.Value("int64"))),
                     "question_types": datasets.Sequence(datasets.Value("string")),
-
                     # "image": datasets.features.Image(),
                 }
             ),
@@ -97,30 +107,35 @@ class DocVQA(datasets.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
         """Uses local files located with data_dir"""
-        dest = Path(os.path.join(os.environ['DATAS_DIR'],"aws_neurips_time/docvqa"))
+        dest = Path(os.path.join(os.environ["DATAS_DIR"], "aws_neurips_time/docvqa"))
         # dest = Path("./datas/docvqa")
         return [
             # datasets.SplitGenerator(
-            #     name=datasets.Split.TRAIN, gen_kwargs={
-            #         "dirpath": dest/"train",
-            #         "filepath": dest/"train/train_v1.0.json",
+            #     name=datasets.Split.TRAIN, 
+            # gen_kwargs={
+                    # "doc_path": dest / "documents.json",
+                    # "content_path": dest / f"train/documents_content{self.dla_model}.jsonl",
+                    # "split": "train",
             #     }
             # ),
+            
             datasets.SplitGenerator(
-                name=datasets.Split.VALIDATION, gen_kwargs={
+                name=datasets.Split.VALIDATION,
+                gen_kwargs={
                     # "doc_path": dest/"dev/document.jsonl",
-                    "doc_path": dest/"documents.json",
-                    "content_path": dest/"dev/documents_content.jsonl",
+                    "doc_path": dest / "documents.json",
+                    "content_path": dest / f"dev/documents_content{self.dla_model}.jsonl",
                     "split": "dev",
-                }
+                },
             ),
             datasets.SplitGenerator(
-                name=datasets.Split.TEST, gen_kwargs={
+                name=datasets.Split.TEST,
+                gen_kwargs={
                     # "doc_path": dest/"test/document.jsonl",
-                    "doc_path": dest/"documents.json",
-                    "content_path": dest/"test/documents_content.jsonl",
+                    "doc_path": dest / "documents.json",
+                    "content_path": dest / f"test/documents_content.jsonl",
                     "split": "test",
-                }
+                },
             ),
         ]
 
@@ -138,7 +153,7 @@ class DocVQA(datasets.GeneratorBasedBuilder):
         logger.info(f"⏳ Generating examples from = {doc_path} and {content_path}")
 
         document_contents = {}
-        with open(content_path, 'r', encoding="utf-8") as f:
+        with open(content_path, "r", encoding="utf-8") as f:
             for line in f:
                 data = json.loads(line)
                 document_contents[data["name"]] = data["contents"][1]  # microsoft_cv
@@ -147,14 +162,14 @@ class DocVQA(datasets.GeneratorBasedBuilder):
 
         # while True:
         #     continue
-        
+
         # NEW: open annotations for question types
-        with open(os.path.join(os.environ['DATAS_DIR'], 'val_v1.0_withQT.json'), 'r') as f:
-            valdata = json.load(f)['data'] #transform into dict with question_id as key
-            val_question_types = {valdata[i]['questionId']: valdata[i]['question_types'] for i in range(len(valdata))}
-        
+        with open(os.path.join(os.environ["DATAS_DIR"], "val_v1.0_withQT.json"), "r") as f:
+            valdata = json.load(f)["data"]  # transform into dict with question_id as key
+            val_question_types = {valdata[i]["questionId"]: valdata[i]["question_types"] for i in range(len(valdata))}
+
         count = 0
-        with open(doc_path, 'r', encoding="utf-8") as f:
+        with open(doc_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             for doc in data:
                 if doc["split"] != split:
@@ -170,12 +185,20 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                     lines = document_contents[doc["name"]]["common_format"]["structures"]["lines"]["structure_value"]
                     line_boxes = document_contents[doc["name"]]["common_format"]["structures"]["lines"]["positions"]
 
-                    line_texts = []
-                    for words_range in lines:
-                        line_words = [words[idx] for idx in range(words_range[0], words_range[1])]
-                        line_texts.append(" ".join(line_words))
-
-
+                    try:
+                        line_texts = []
+                        for words_range in lines:
+                            line_words = [words[idx] for idx in range(words_range[0], words_range[1])]
+                            line_texts.append(" ".join(line_words))
+                    except Exception as e:
+                        print(e)
+                        print(doc["name"])
+                        print(lines)
+                        print(words)
+                        print("=" * 50)
+                        from pdb import set_trace; set_trace()
+                        continue
+                    
                     example = {
                         "questionId": question_id,
                         "question": question,
@@ -187,7 +210,7 @@ class DocVQA(datasets.GeneratorBasedBuilder):
 
                     # if count > 10:
                     #     break
-                    
+
                     # print("="*50)
                     # for k, v in example.items():
                     #     print(k, v)
@@ -196,19 +219,25 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                     # print(document_contents[data["name"]]["common_format"].keys())
                     # print(document_contents[data["name"]]["common_format"]["structures"]["lines"])
 
-
                     yield count, example
 
                     count += 1
 
-                
                 # if count > 10:
                 #     break
-        
+
 
 if __name__ == "__main__":
     dataset = datasets.load_dataset(
+        os.path.abspath(__file__), dla_model="vitb_imagenet_doclaynet_tecaher",
+    )
+    print('extended', len(dataset["validation"]))
+    print(dataset["validation"][0])
+    #load_dataset_builder, config_kwargs
+    dataset = datasets.load_dataset(
         os.path.abspath(__file__),
     )
-    print(len(dataset["validation"]))
-    print(len(dataset["test"]))
+    print('original', len(dataset["validation"]))
+    print(dataset["validation"][0])
+    # print(len(dataset["test"]))
+
