@@ -196,7 +196,6 @@ class DocVQA(datasets.GeneratorBasedBuilder):
                         print(lines)
                         print(words)
                         print("=" * 50)
-                        from pdb import set_trace; set_trace()
                         continue
                     
                     example = {

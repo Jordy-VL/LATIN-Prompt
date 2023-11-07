@@ -1,8 +1,15 @@
 import os
 import json
 import sys
+
 sys.path.append(".")
 from utils.util import is_same_line, union_box, boxes_sort
+
+
+def line_length_without_tags(line_text):
+    return len(
+        " ".join([token for token in line_text.split() if not token.startswith("<") and not token.endswith(">")])
+    )
 
 
 def space_layout(texts, boxes):
@@ -14,23 +21,26 @@ def space_layout(texts, boxes):
     while len(boxes) > 0:
         line_box = [boxes.pop(0)]
         line_text = [texts.pop(0)]
-        char_num = len(line_text[-1])
+        # need to do the fix here for char num
+        tokens = line_text[-1].split()
+        # filter anything with <token> or </token>
+        char_num = line_length_without_tags(line_text[-1])
         line_union_box = line_box[-1]
         while len(boxes) > 0 and is_same_line(line_box[-1], boxes[0]):
             line_box.append(boxes.pop(0))
             line_text.append(texts.pop(0))
-            char_num += len(line_text[-1])
+            char_num += line_length_without_tags(line_text[-1])
             line_union_box = union_box(line_union_box, line_box[-1])
         line_boxes.append(line_box)
         line_texts.append(line_text)
         if char_num >= max_line_char_num:
             max_line_char_num = char_num
             line_width = line_union_box[2] - line_union_box[0]
-    
+
     # print(line_width)
 
     char_width = line_width / max_line_char_num
-    print(char_width)
+    # print(char_width)
     if char_width == 0:
         char_width = 1
 
@@ -47,7 +57,6 @@ def space_layout(texts, boxes):
 
 
 if __name__ == "__main__":
-
     filepath = "/home/xxx/workspace/VrDU/datas/funsd/testing_data/annotations/82092117.json"
     with open(filepath, "r") as f:
         data = json.load(f)
@@ -59,7 +68,7 @@ if __name__ == "__main__":
         # texts.append("{" + f'{i}-{item["text"]}' + "}")
         text_boxes.append(item["box"])
     ids = boxes_sort(text_boxes)
-    texts = ["{" + f'{count}-{texts[i]}' + "}" for count, i in enumerate(ids)]
+    texts = ["{" + f"{count}-{texts[i]}" + "}" for count, i in enumerate(ids)]
     text_boxes = [text_boxes[i] for i in ids]
     space_line_texts = space_layout(texts=texts, boxes=text_boxes)
     with open("82092117.txt", "w") as f:

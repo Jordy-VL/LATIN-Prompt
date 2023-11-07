@@ -5,10 +5,16 @@ model_name=${2:-"llama-7b"}
 dataset_name=${3:-"docvqa"}
 prompt=${4:-"plain"}  # plain or alpaca
 comment=${5:-""}
+ocr_version=${6:-""}
+
 
 run_name=${model_name}__Prompt_${prompt}
 if [ -n "${comment}" ]; then
     run_name=${run_name}__${comment}
+    comment="--comment ${comment}"
+fi
+if [ -n "${ocr_version}" ]; then
+    run_name=${run_name}__${ocr_version}
 fi
 run_name=${run_name}__${dataset_name}
 
@@ -25,7 +31,7 @@ if [ "${dataset_name}" = "docvqa_due_azure" ]; then
         --run_name ${run_name} \
         --prompt ${prompt} \
         --per_device_eval_batch_size 2 \
-        #--comment ${comment}
+        ${comment}
 else
     echo "wrong dataset: "${dataset_name}
 fi

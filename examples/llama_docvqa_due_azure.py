@@ -62,20 +62,14 @@ PROMPT_DICT = {
 
 
 def load_llama(custom_args):
+    
+    if torch.cuda.is_available():
     # Load the entire model on the GPU 0
-    device_map = {"": 0}
-    ################################################################################
-    # QLoRA parameters
-    ################################################################################
-
-    # LoRA attention dimension
-    lora_r = 64
-
-    # Alpha parameter for LoRA scaling
-    lora_alpha = 16
-
-    # Dropout probability for LoRA layers
-    lora_dropout = 0.1
+        device_map = {"": 0}
+        
+        
+    else:
+        device_map = None
 
     ################################################################################
     # bitsandbytes parameters
@@ -105,15 +99,18 @@ def load_llama(custom_args):
 
     # Check GPU compatibility with bfloat16
     if compute_dtype == torch.float16 and use_4bit:
-        major, _ = torch.cuda.get_device_capability()
-        if major >= 8:
-            print("=" * 80)
-            print("Your GPU supports bfloat16: accelerate training with bf16=True")
-            print("=" * 80)
+        try:
+            major, _ = torch.cuda.get_device_capability()
+            if major >= 8:
+                print("=" * 80)
+                print("Your GPU supports bfloat16: accelerate training with bf16=True")
+                print("=" * 80)
+        except Exception as e:
+            print(e)
 
     # Load base model
     model = AutoModelForCausalLM.from_pretrained(
-        custom_args.model_name_or_path, quantization_config=bnb_config, device_map="auto"
+        custom_args.model_name_or_path, quantization_config=bnb_config, device_map=device_map#"auto"
     )
     model.config.use_cache = False
     model.config.pretraining_tp = 1
@@ -171,7 +168,7 @@ class DataCollatorForDocVQA(DataCollatorMixin):
             batch["question"].append(question)
             batch["question_types"].append(example["question_types"])
 
-            # TODO: extend with DLA features
+            # TODO: extend with DLA features (done automatically in OCR, potentially extend prompt with DLA instruction)
 
             if self.prompt_type == "plain":
                 doc = " ".join(example["texts"])
@@ -209,7 +206,6 @@ def main():
     for k, v in custom_args.__dict__.items():
         print(k, v)
 
-    # TODO: extend this
     to_log = ["dataset_name", "model_name_or_path", "prompt", "comment"]
     logged_config = {k: v for k, v in custom_args.__dict__.items() if k in to_log}
     # some debugging control variables
@@ -230,8 +226,9 @@ def main():
     processor, model = load_llama(custom_args)
 
     if custom_args.dataset_name == "docvqa_due_azure":
-        data = datasets.load_dataset("utils/docvqa_due_azure.py")
-
+        #safe reloading as HF likes to cache the DLA extended one... 
+        data = datasets.load_dataset("utils/docvqa_due_azure.py", dla_model=custom_args.comment if custom_args.comment else "", download_mode='force_redownload',  ignore_verifications=True)
+        
     anls_metric = ANLS(
         result_dir=custom_args.results_dir, exp_name=training_args.run_name, dataset_name=custom_args.dataset_name
     )
