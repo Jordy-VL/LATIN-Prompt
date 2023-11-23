@@ -8,7 +8,48 @@ from PIL import Image
 
 logger = datasets.logging.get_logger(__name__)
 
-from docvqa_due_azure import load_image, normalize_bbox, quad_to_box, box4point_to_box2point
+
+def load_image(image_path):
+    image = Image.open(image_path).convert("RGB")
+    w, h = image.size
+    return image, (w, h)
+
+
+def normalize_bbox(bbox, size):
+    return [
+        int(1000 * bbox[0] / size[0]),
+        int(1000 * bbox[1] / size[1]),
+        int(1000 * bbox[2] / size[0]),
+        int(1000 * bbox[3] / size[1]),
+    ]
+
+
+def quad_to_box(quad):
+    # test 87 is wrongly annotated
+    box = (max(0, quad["x1"]), max(0, quad["y1"]), quad["x3"], quad["y3"])
+    if box[3] < box[1]:
+        bbox = list(box)
+        tmp = bbox[3]
+        bbox[3] = bbox[1]
+        bbox[1] = tmp
+        box = tuple(bbox)
+    if box[2] < box[0]:
+        bbox = list(box)
+        tmp = bbox[2]
+        bbox[2] = bbox[0]
+        bbox[0] = tmp
+        box = tuple(bbox)
+    return box
+
+
+def box4point_to_box2point(box4point):
+    # bounding box = [x0, y0, x1, y1, x2, y2, x3, y3]
+    all_x = [box4point[2 * i] for i in range(4)]
+    all_y = [box4point[2 * i + 1] for i in range(4)]
+    # print(box4point)
+    box2point = [min(all_x), min(all_y), max(all_x), max(all_y)]
+    # print(box2point)
+    return box2point
 
 
 _DESCRIPTION = """

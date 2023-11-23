@@ -52,6 +52,16 @@ PROMPT_DICT = {
         "Directly extract the answer of the question from the document with as few words as possible .\n\n"
         "Answer:"
     ),
+    "prompt_task_DLA": (
+        "You are asked to answer questions asked on a document image.\n"
+        "The answers to questions are short text spans taken verbatim from the document. "
+        "This means that the answers comprise a set of contiguous text tokens present in the document.\n"
+        "The logical layout regions are indicated with opening and closing tags such as <Table> and </Table> to help localizing answers. \n"
+        "Document:\n{document}\n\n"
+        "Question: {question}\n\n"
+        "Directly extract the answer of the question from the document with as few words as possible .\n\n"
+        "Answer:"
+    ),
     "prompt_plain": (
         "Document:\n{document}\n\n"
         "Question: {question}\n\n"
@@ -62,12 +72,10 @@ PROMPT_DICT = {
 
 
 def load_llama(custom_args):
-    
     if torch.cuda.is_available():
-    # Load the entire model on the GPU 0
+        # Load the entire model on the GPU 0
         device_map = {"": 0}
-        
-        
+
     else:
         device_map = None
 
@@ -110,7 +118,7 @@ def load_llama(custom_args):
 
     # Load base model
     model = AutoModelForCausalLM.from_pretrained(
-        custom_args.model_name_or_path, quantization_config=bnb_config, device_map=device_map#"auto"
+        custom_args.model_name_or_path, quantization_config=bnb_config, device_map=device_map  # "auto"
     )
     model.config.use_cache = False
     model.config.pretraining_tp = 1
@@ -173,6 +181,16 @@ class DataCollatorForDocVQA(DataCollatorMixin):
             if self.prompt_type == "plain":
                 doc = " ".join(example["texts"])
                 text = PROMPT_DICT["prompt_plain"].format_map({"document": doc, "question": question})
+            elif self.prompt_type == "task_instruction_space_DLA":
+                space_line_texts = self.space_layout(
+                    example["texts"],
+                    example["text_boxes"],
+                )
+                doc = "\n".join(space_line_texts)
+                text = PROMPT_DICT["prompt_task_DLA"].format_map({"document": doc, "question": question})
+            elif self.prompt_type == "task_instruction_DLA":
+                doc = " ".join(example["texts"])
+                text = PROMPT_DICT["prompt_task_DLA"].format_map({"document": doc, "question": question})
             elif self.prompt_type == "task_instruction_space":
                 space_line_texts = self.space_layout(
                     example["texts"],
@@ -225,10 +243,15 @@ def main():
 
     processor, model = load_llama(custom_args)
 
-    if custom_args.dataset_name == "docvqa_due_azure":
-        #safe reloading as HF likes to cache the DLA extended one... 
-        data = datasets.load_dataset("utils/docvqa_due_azure.py", dla_model=custom_args.comment if custom_args.comment else "", download_mode='force_redownload',  ignore_verifications=True)
-        
+    assert custom_args.dataset_name in ["docvqa_due_azure", "infographics_vqa_due_azure"]
+    # safe reloading as HF likes to cache the DLA extended one...
+    data = datasets.load_dataset(
+        f"utils/{custom_args.dataset_name}.py",
+        dla_model=custom_args.comment if custom_args.comment else "",
+        download_mode="force_redownload",
+        ignore_verifications=True,
+    )
+
     anls_metric = ANLS(
         result_dir=custom_args.results_dir, exp_name=training_args.run_name, dataset_name=custom_args.dataset_name
     )
@@ -277,9 +300,7 @@ def main():
         all_answers.extend(batch["answers"])
         all_questions.extend(batch["question"])
         all_question_ids.extend(batch["questionId"])
-        all_question_types.extend(
-            batch["question_types"]
-        )  # it is a list, good idea? data["validation"][i]['question_types']
+        all_question_types.extend(batch["question_types"])
         if DOWNSAMPLING and i == 3:
             break
     val_anls_metrics = anls_metric.compute_and_save(

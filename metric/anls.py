@@ -195,7 +195,7 @@ class ANLS(object):
             raise NotImplementedError
 
     def compute_and_save(self, qids, questions, predictions, references=None, question_types=None, split="val"):
-        if self.dataset_name in ["docvqa", "infographicvqa", "docvqa_due_azure", "infographicvqa_due_azure"]:
+        if self.dataset_name in ["docvqa", "infographicvqa", "docvqa_due_azure", "infographicvqa_due_azure", 'infographics_vqa_due_azure']:
             return self.compute_and_save_docvqa(qids, questions, predictions, references=references, split=split, question_types=question_types)
         elif self.dataset_name in ["mpdocvqa"]:
             return self.compute_and_save_mpdocvqa(qids, questions, predictions, references=references, split=split, question_types=question_types)

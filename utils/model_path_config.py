@@ -13,8 +13,10 @@ model_path_config = {
     "vicuna-13b": "lmsys/vicuna-13b-v1.3",
     # "llama2-7b-chat": "TheBloke/Llama-2-7B-chat-AWQ",
     # "llama2-13b-chat": "TheBloke/Llama-2-13B-chat-AWQ",
+    "llama2-7b": "NousResearch/Llama-2-7b-hf",
     "llama2-7b-chat": "NousResearch/Llama-2-7b-chat-hf",
     "llama2-13b-chat": "NousResearch/Llama-2-13b-chat-hf",
-    "mistral-7b": "mistralai/Mistral-7B-v0.1", 
-    #"meta-llama/Llama-2-13b-chat-hf",
+    "mistral-7b": "mistralai/Mistral-7B-v0.1",
+    'zephyr-7b': 'HuggingFaceH4/zephyr-7b-alpha',
+    # "meta-llama/Llama-2-13b-chat-hf",
 }
